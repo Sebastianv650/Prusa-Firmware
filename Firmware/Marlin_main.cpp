@@ -1805,10 +1805,6 @@ static float probe_pt(float x, float y, float z_before) {
 
 #endif // #ifdef ENABLE_AUTO_BED_LEVELING
 
-#ifdef ADVANCE && ifdef LIN_ADVANCE
-  #error "You can enable ADVANCE or LIN_ADVANCE, but not both."
-#endif
-
 #ifdef LIN_ADVANCE
   /**
    * M900: Set and/or Get advance K factor and WH/D ratio
