@@ -90,7 +90,7 @@ volatile signed char count_direction[NUM_AXIS] = { 1, 1, 1, 1};
 
 #ifdef LIN_ADVANCE
 
-  constexpr uint16_t ADV_NEVER = 65535;
+  uint16_t ADV_NEVER = 65535;
 
   static uint16_t nextMainISR = 0;
   static uint16_t nextAdvanceISR = ADV_NEVER;
@@ -582,9 +582,6 @@ void isr() {
         if (counter_e > 0) {
           counter_e -= current_block->step_event_count;
           count_position[E_AXIS] += count_direction[E_AXIS];
-          //motor_direction(E_AXIS) ? --e_steps : ++e_steps;
-          //TEST(out_bits, E_AXIS) ? --e_steps : ++e_steps;
-          //(((out_bits)&BIT(E_AXIS))!=0) ? --e_steps : ++e_steps;
           ((out_bits&(1<<E_AXIS))!=0) ? --e_steps : ++e_steps;
         }
       #endif
@@ -649,9 +646,9 @@ void isr() {
         const int delta_adv_steps = current_estep_rate - current_adv_steps;
         current_adv_steps += delta_adv_steps;
         e_steps += delta_adv_steps;
-        // If we have esteps to execute, fire the next advance_isr "now"
-        if (e_steps) nextAdvanceISR = 0;
       }
+      // If we have esteps to execute, fire the next advance_isr "now"
+      if (e_steps) nextAdvanceISR = 0;
     #endif
   
     // Calculare new timer value
@@ -727,9 +724,6 @@ void isr() {
 
 #ifdef LIN_ADVANCE
 
-  //#define CYCLES_EATEN_E (E_STEPPERS * 5)
-  //#define EXTRA_CYCLES_E (STEP_PULSE_CYCLES - (CYCLES_EATEN_E))
-
   // Timer interrupt for E. e_steps is set in the main routine.
 
   void advance_isr() {
@@ -749,43 +743,15 @@ void isr() {
       }
 
     SET_E_STEP_DIR(0);
-    //if (e_steps) WRITE(E0_DIR_PIN, e_steps < 0 ? INVERT_E0_DIR : !INVERT_E0_DIR)
 
-    // Step all E steppers that have steps
     for (uint8_t i = step_loops; i--;) {
-
-      #if EXTRA_CYCLES_E > 20
-        uint32_t pulse_start = TCNT0;
-      #endif
-
       START_E_PULSE(0);
 
-      // For minimum pulse time wait before stopping pulses
-      //#if EXTRA_CYCLES_E > 20
-      //  while (EXTRA_CYCLES_E > (uint32_t)(TCNT0 - pulse_start) * (INT0_PRESCALER)) { /* nada */ }
-      //  pulse_start = TCNT0;
-      //#elif EXTRA_CYCLES_E > 0
-      //  DELAY_NOPS(EXTRA_CYCLES_E);
-      //#endif
-
       STOP_E_PULSE(0);
-
-      // For minimum pulse time wait before looping
-      //#if EXTRA_CYCLES_E > 20
-      //  if (i) while (EXTRA_CYCLES_E > (uint32_t)(TCNT0 - pulse_start) * (INT0_PRESCALER)) { /* nada */ }
-      //#elif EXTRA_CYCLES_E > 0
-      //  if (i) DELAY_NOPS(EXTRA_CYCLES_E);
-      //#endif
-
-    } // steps_loop
+    }
   }
 
   void advance_isr_scheduler() {
-    // Disable Timer0 ISRs and enable global ISR again to capture UART events (incoming chars)
-    //CBI(TIMSK0, OCIE0B); // Temperature ISR
-    //DISABLE_STEPPER_DRIVER_INTERRUPT();
-    //sei();
-
     // Run main stepping ISR if flagged
     if (!nextMainISR) isr();
 
@@ -812,10 +778,7 @@ void isr() {
     }
 
     // Don't run the ISR faster than possible
-    //NOLESS(OCR1A, TCNT1 + 16);
-
-    // Restore original ISR settings
-    //_ENABLE_ISRs();
+    if (OCR1A < TCNT1 + 16) OCR1A = TCNT1 + 16;
   }
 
 #endif // LIN_ADVANCE
